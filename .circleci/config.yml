@@ -1,0 +1,56 @@
+version: 2.1
+jobs:
+  build_test:
+    docker:
+      - image: circleci/python:3.8.13
+    steps:
+      - checkout  # checkout source code to working directory
+      - run:
+          command: |  # create whl and use pipenv to install dependencies
+            python setup.py sdist bdist_wheel
+            sudo pip install pipenv
+            pipenv install dist/fibonacci-0.0.0-py3-none-any.whl
+            pipenv install requirements_dev.txt
+      - run:
+          command: |  # Run test suite
+            pipenv run pytest
+  test_pypi_publish:
+    docker:
+      - image: circleci/python:3.8.13
+    steps:
+      - checkout  # checkout source code to working directory
+      - run:
+          command: |  # create whl, install twine and publish to Test PyPI
+            python setup.py sdist bdist_wheel
+            sudo pip install pipenv
+            pipenv install twine
+            pipenv run twine upload --repository testpypi dist/*
+  pypi_publish:
+    docker:
+      - image: circleci/python:3.8.13
+    steps:
+      - checkout  # checkout source code to working directory
+      - run:
+          command: |  # create whl, install twine and publish to PyPI
+            python setup.py sdist bdist_wheel
+            sudo pip install pipenv
+            pipenv install twine
+            pipenv run twine upload dist/*
+workflows:
+  build_test_publish:
+    jobs:
+      - build_test
+      - test_pypi_publish:
+          requires:
+            - build_test
+          filters:
+            branches:
+              only:
+                - develop
+      - pypi_publish:
+          requires:
+            - build_test
+          filters:
+            branches:
+              only:
+                - main
